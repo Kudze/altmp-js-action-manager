@@ -1,0 +1,1 @@
+# altmp-js-action-manager
