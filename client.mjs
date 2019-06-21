@@ -64,13 +64,15 @@ let actionRequest = () => {
 
         actions.forEach(
             (action) => {
-                let distance = dist(
-                    player.pos,
-                    action.pos
-                );
+                if(action !== undefined) {
+                    let distance = dist(
+                        player.pos,
+                        action.pos
+                    );
 
-                if(distance < MAX_ACTION_REACT_DIST) {
-                    action.callback();
+                    if(distance < MAX_ACTION_REACT_DIST) {
+                        action.callback();
+                    }
                 }
             }
         );
@@ -110,10 +112,12 @@ alt.on(
     () => {
         actions.forEach(
             (action) => {
-                draw3dText(
-                    action.pos,
-                    action.message
-                )
+                if(action !== undefined) {
+                    draw3dText(
+                        action.pos,
+                        action.message
+                    );
+                }
             }
         )
     }
@@ -121,7 +125,7 @@ alt.on(
 
 alt.on(
     `keydown`,
-    () => {
+    (key) => {
         if (key === 89) actionRequest();
     }
 )
