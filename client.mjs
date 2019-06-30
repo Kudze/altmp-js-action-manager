@@ -1,47 +1,10 @@
 import alt from "alt";
 import game from "natives";
 
-const MAX_3D_DIST = 20;
-const MAX_ACTION_REACT_DIST = 3;
+import ALTText3D from "altmp-js-3dtext-spawner";
 
-/**
- * Function is borrowed from: https://forum.altv.mp/index.php?/topic/33-basic-3dtext/
- * 
- * @param x 
- * @param y 
- * @param z 
- * @param name 
- */
-let draw3dText = (pos, message) => {
-    const [bol, _x, _y] = game.getScreenCoordFromWorldCoord(pos.x, pos.y, pos.z);
-    const camCord = game.getGameplayCamCoords();
-    const dist = game.getDistanceBetweenCoords(camCord.x,camCord.y,camCord.z, pos.x, pos.y, pos.z, 1);
-
-    if (dist > MAX_3D_DIST) return;
-
-    let scale = (4.00001/dist) * 0.3
-    if (scale > 0.2)
-        scale = 0.2;
-
-    const fov = (1/game.getGameplayCamFov())*100;
-	scale = scale*fov;
-  
-    if (bol){
-        game.setTextScale(scale, scale);
-        game.setTextFont(0);
-        game.setTextProportional(true);
-        game.setTextColour(255, 255, 255, 255);
-        game.setTextDropshadow(0, 0, 0, 0, 255);
-        game.setTextEdge(2, 0, 0, 0, 150);
-        game.setTextDropShadow();
-        game.setTextOutline();
-        game.setTextCentre(true);
-        game.beginTextCommandDisplayText("STRING");
-        game.addTextComponentSubstringPlayerName(message);
-        game.endTextCommandDisplayText(_x,_y + 0.025);
-    }
-
-}
+const MAX_DEFAULT_ACTION_REACT_DIST = 3;
+const ACTION_REQUEST_KEY = 89;
 
 let dist = (pos1, pos2) => {
     let pos = {
@@ -55,14 +18,21 @@ let dist = (pos1, pos2) => {
     );
 };
 
-let actions = [];
+let ACTION_LIST = [];
+
+let findUnusedActionID = () => {
+    for(let i = 0; i < ACTION_LIST.length; i++)
+        if(ACTION_LIST[i] === undefined) return i;
+
+    return ACTION_LIST.length;
+};
 
 //TODO: handle multiple actions in one place.
 let actionRequest = () => {
     if(alt.gameControlsEnabled()) {
         let player = alt.getLocalPlayer();
 
-        actions.forEach(
+        ACTION_LIST.forEach(
             (action) => {
                 if(action !== undefined) {
                     let distance = dist(
@@ -70,7 +40,7 @@ let actionRequest = () => {
                         action.pos
                     );
 
-                    if(distance < MAX_ACTION_REACT_DIST) {
+                    if(distance < action.maxReachDist) {
                         action.callback();
                     }
                 }
@@ -79,53 +49,83 @@ let actionRequest = () => {
     }
 };
 
-let findUnusedActionID = () => {
-    for(let i = 0; i < actions.length; i++)
-        if(actions[i] === undefined) return i;
+export default {
+    new: (pos, callback, title, {maxReachDist = MAX_DEFAULT_ACTION_REACT_DIST}) => {
+        let id = findUnusedActionID();
 
-    return actions.length;
-};
+        let text3D = undefined;
+        if(title !== undefined && title !== null) {
+            let titleType = typeof title;
 
-export function registerAction(
-    pos,
-    title,
-    actionName,
-    callback
-) {
-    let id = findUnusedActionID();
+            if(titleType === "string")
+                text3D = ALTText3D.new(
+                    title,
+                    () => {
+                        ACTION_LIST[id].getPosition()
+                    }
+                );
 
-    actions[id] = {
-        pos: {...pos},
-        message: `~o~${title}\n~w~Press ~o~Y~w~ to ~o~${actionName}~w~.`,
-        callback: callback
-    };
+            else if(titleType === "object")
+                text3D = ALTText3D.new(
+                    `~o~${title.title}\n~w~Press ~o~Y~w~ to ~o~${title.action}~w~.`,
+                    () => {
+                        ACTION_LIST[id].getPosition()
+                    }
+                );
 
-    return id;
-}
+            else if(titleType === "function")
+                text3D = title();
+        }
 
-export function destroyAction(id) {
-    actions[id] = undefined;
-}
+        ACTION_LIST[id] = {
+            text3D: text3D,
+            maxReachDist: maxReachDist,
+            pos: pos,
+            callback: callback,
+            getPosition: () => { 
+                const posType = typeof this.pos;
 
-alt.on(
-    'update',
-    () => {
-        actions.forEach(
-            (action) => {
-                if(action !== undefined) {
-                    draw3dText(
-                        action.pos,
-                        action.message
-                    );
+                if(posType === "function")
+                    return this.pos();
+
+                if(posType === "object") {
+                    if(this.pos.position !== undefined)
+                        return this.pos.position;
+
+                    if(this.pos.pos !== undefined)
+                        return this.pos.pos;
+
+                    return this.pos;
                 }
+
+                else alt.warn("altmp-js-action-manager unable to decypher this.pos in getPosition()");
+
+                return {
+                    x: 0,
+                    y: 0,
+                    z: 0
+                };
+            },
+            destroy: () => {
+                if(this.text3D !== undefined)
+                    this.text3D.destroy();
+
+                ACTION_LIST[id] = undefined;
             }
-        )
+        };
+
+        return {
+            id: id,
+            destroy: () => {
+                ACTION_LIST[this.id].destroy();
+            },
+        };
     }
-)
+}
 
 alt.on(
     `keydown`,
     (key) => {
-        if (key === 89) actionRequest();
+        if (key === ACTION_REQUEST_KEY) actionRequest();
     }
 )
