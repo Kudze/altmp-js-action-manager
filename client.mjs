@@ -37,7 +37,7 @@ let actionRequest = () => {
                 if(action !== undefined) {
                     let distance = dist(
                         player.pos,
-                        action.position
+                        action.getPosition()
                     );
 
                     if(distance < action.maxReachDist) {
@@ -80,7 +80,7 @@ export default {
                 ACTION_LIST[id].text3D = ALTText3D.new(
                     title,
                     () => {
-                        return ACTION_LIST[id].position
+                        return ACTION_LIST[id].getPosition()
                     }
                 );
 
@@ -88,7 +88,7 @@ export default {
                 ACTION_LIST[id].text3D = ALTText3D.new(
                     `~o~${title.title}\n~w~Press ~o~Y~w~ to ~o~${title.action}~w~.`,
                     () => {
-                        return ACTION_LIST[id].position
+                        return ACTION_LIST[id].getPosition()
                     }
                 );
 
