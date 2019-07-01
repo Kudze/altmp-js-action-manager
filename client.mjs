@@ -37,7 +37,7 @@ let actionRequest = () => {
                 if(action !== undefined) {
                     let distance = dist(
                         player.pos,
-                        action.pos
+                        action.position
                     );
 
                     if(distance < action.maxReachDist) {
@@ -50,63 +50,22 @@ let actionRequest = () => {
 };
 
 export default {
-    new: (pos, callback, title, {maxReachDist = MAX_DEFAULT_ACTION_REACT_DIST}) => {
+    new: (pos, callback, title, {maxReachDist = MAX_DEFAULT_ACTION_REACT_DIST} = {}) => {
         let id = findUnusedActionID();
-
-        let text3D = undefined;
-        if(title !== undefined && title !== null) {
-            let titleType = typeof title;
-
-            if(titleType === "string")
-                text3D = ALTText3D.new(
-                    title,
-                    () => {
-                        ACTION_LIST[id].getPosition()
-                    }
-                );
-
-            else if(titleType === "object")
-                text3D = ALTText3D.new(
-                    `~o~${title.title}\n~w~Press ~o~Y~w~ to ~o~${title.action}~w~.`,
-                    () => {
-                        ACTION_LIST[id].getPosition()
-                    }
-                );
-
-            else if(titleType === "function")
-                text3D = title();
-        }
-
+        
         ACTION_LIST[id] = {
-            text3D: text3D,
             maxReachDist: maxReachDist,
-            pos: pos,
+            _pos: pos,
             callback: callback,
-            getPosition: () => { 
-                const posType = typeof this.pos;
+            getPosition() { 
+                const posType = typeof this._pos;
 
                 if(posType === "function")
-                    return this.pos();
+                    return this._pos();
 
-                if(posType === "object") {
-                    if(this.pos.position !== undefined)
-                        return this.pos.position;
-
-                    if(this.pos.pos !== undefined)
-                        return this.pos.pos;
-
-                    return this.pos;
-                }
-
-                else alt.warn("altmp-js-action-manager unable to decypher this.pos in getPosition()");
-
-                return {
-                    x: 0,
-                    y: 0,
-                    z: 0
-                };
+                return this._pos;
             },
-            destroy: () => {
+            destroy() {
                 if(this.text3D !== undefined)
                     this.text3D.destroy();
 
@@ -114,11 +73,39 @@ export default {
             }
         };
 
+        if(title !== undefined && title !== null) {
+            let titleType = typeof title;
+
+            if(titleType === "string")
+                ACTION_LIST[id].text3D = ALTText3D.new(
+                    title,
+                    () => {
+                        return ACTION_LIST[id].position
+                    }
+                );
+
+            else if(titleType === "object")
+                ACTION_LIST[id].text3D = ALTText3D.new(
+                    `~o~${title.title}\n~w~Press ~o~Y~w~ to ~o~${title.action}~w~.`,
+                    () => {
+                        return ACTION_LIST[id].position
+                    }
+                );
+
+            else if(titleType === "function")
+                ACTION_LIST[id].text3D = title();
+        }
+
         return {
-            id: id,
-            destroy: () => {
-                ACTION_LIST[this.id].destroy();
+            destroy() {
+                ACTION_LIST[id].destroy();
             },
+            getPosition() {
+                return ACTION_LIST[id].getPosition();
+            },
+            setPosition(position) {
+                return ACTION_LIST[id]._pos = position;
+            }
         };
     }
 }
